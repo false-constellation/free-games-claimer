@@ -28,7 +28,7 @@ export const handleSIGINT = (context = null) => process.on('SIGINT', async () =>
 });
 
 export const launchChromium = async options => {
-  const { chromium } = await import('playwright-chromium'); // stealth plugin needs no outdated playwright-extra
+  const { chromium } = await import('playwright'); // stealth plugin needs no outdated playwright-extra
 
   // https://www.nopecha.com extension source from https://github.com/NopeCHA/NopeCHA/releases/tag/0.1.16
   // const ext = path.resolve('nopecha'); // used in Chromium, currently not needed in Firefox
@@ -78,8 +78,8 @@ export const stealth = async context => {
     },
   };
   for (const e of enabledEvasions) {
-    const evasion = await import(`puppeteer-extra-plugin-stealth/evasions/${e}/index.js`);
-    evasion.default().onPageCreated(stealth);
+    // const evasion = await import(`puppeteer-extra-plugin-stealth/evasions/${e}/index.js`);
+    // evasion.default().onPageCreated(stealth);
   }
   for (const evasion of stealth.callbacks) {
     await context.addInitScript(evasion.cb, evasion.a);

@@ -1,7 +1,7 @@
 // TODO This is mostly a copy of epic-games.js
 // New assets to claim every first Tuesday of a month.
 
-import { firefox } from 'playwright-firefox'; // stealth plugin needs no outdated playwright-extra
+import { chromium } from 'playwright'; // stealth plugin needs no outdated playwright-extra
 import { authenticator } from 'otplib';
 import path from 'path';
 import { writeFileSync } from 'fs';
@@ -18,7 +18,7 @@ console.log(datetime(), 'started checking unrealengine');
 const db = await jsonDb('unrealengine.json', {});
 
 // https://playwright.dev/docs/auth#multi-factor-authentication
-const context = await firefox.launchPersistentContext(cfg.dir.browser, {
+const context = await chromium.launchPersistentContext(cfg.dir.browser, {
   headless: cfg.headless,
   viewport: { width: cfg.width, height: cfg.height },
   userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.83 Safari/537.36', // see replace of Headless in util.newStealthContext. TODO Windows UA enough to avoid 'device not supported'? update if browser is updated?
