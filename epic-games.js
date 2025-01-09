@@ -38,7 +38,10 @@ const context = await chromium.launchPersistentContext(cfg.dir.browser, {
   handleSIGINT: false, // have to handle ourselves and call context.close(), otherwise recordings from above won't be saved
   // user settings for firefox have to be put in $BROWSER_DIR/user.js
   executablePath: path.join(process.env['PROGRAMFILES'], 'Google/Chrome/Application/chrome.exe'), // Use the locally installed Chrome
-  args: ['--disable-blink-features=AutomationControlled'], // Disable automation detection
+  args: [
+    '--disable-blink-features=AutomationControlled',
+    '--hide-crash-restore-bubble'
+  ], 
 });
 
 handleSIGINT(context);
@@ -145,6 +148,7 @@ try {
     console.error('Seems like currently there are no free games available in your region...');
     // urls below should then be an empty list
   });
+  await page.waitForTimeout(4100);
   // clicking on `game_sel` sometimes led to a 404, see https://github.com/vogler/free-games-claimer/issues/25
   // debug showed that in those cases the href was still correct, so we `goto` the urls instead of clicking.
   // Alternative: parse the json loaded to build the page https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions
@@ -155,10 +159,11 @@ try {
 
   for (const url of urls) {
     if (cfg.time) console.time('claim game');
-    await page.goto(url); // , { waitUntil: 'domcontentloaded' });
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
     const purchaseBtn = page.locator('button[data-testid="purchase-cta-button"] >> :has-text("e"), :has-text("i")').first(); // when loading, the button text is empty -> need to wait for some text {'get', 'in library', 'requires base game'} -> just wait for e or i to not be too specific; :text-matches("\w+") somehow didn't work - https://github.com/vogler/free-games-claimer/issues/375
     await purchaseBtn.waitFor();
     const btnText = (await purchaseBtn.innerText()).toLowerCase(); // barrier to block until page is loaded
+    await page.waitForTimeout(4500);
 
     // click Continue if 'This game contains mature content recommended only for ages 18+'
     if (await page.locator('button:has-text("Continue")').count() > 0) {
@@ -170,7 +175,7 @@ try {
         await page.locator('#day_toggle').click();
         await page.locator('#day_menu li:has-text("01")').click();
         await page.locator('#year_toggle').click();
-        await page.locator('#year_menu li:has-text("1987")').click();
+        await page.locator('#year_menu li:has-text("1960")').click();
       }
       await page.click('button:has-text("Continue")', { delay: 111 });
       await page.waitForTimeout(2000);
