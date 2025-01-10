@@ -16,14 +16,6 @@ const db = await jsonDb('epic-games.json', {});
 
 if (cfg.time) console.time('startup');
 
-const browserPrefs = path.join(cfg.dir.browser, 'prefs.js');
-if (existsSync(browserPrefs)) {
-  //console.log('Adding webgl.disabled to', browserPrefs);
-  //appendFileSync(browserPrefs, 'user_pref("webgl.disabled", true);'); // apparently chrome removes duplicates (and sorts), so no problem appending every time
-} else {
-  console.log(browserPrefs, 'does not exist yet, will patch it on next run. Restart the script if you get a captcha.');
-}
-
 // https://playwright.dev/docs/auth#multi-factor-authentication
 const context = await chromium.launchPersistentContext(cfg.dir.browser, {
   headless: cfg.headless,
