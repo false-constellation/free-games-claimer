@@ -34,6 +34,7 @@ const context = await chromium.launchPersistentContext(cfg.dir.browser, {
 });
 handleSIGINT(context);
 // await stealth(context);
+await new FingerprintInjector().attachFingerprintToPlaywright(context, { fingerprint, headers });
 
 context.setDefaultTimeout(cfg.debug ? 0 : cfg.timeout);
 
@@ -43,7 +44,7 @@ const auth = async (url) => {
   console.log('auth', url);
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   // redirects to https://login.aliexpress.com/?return_url=https%3A%2F%2Fwww.aliexpress.com%2Fp%2Fcoin-pc-index%2Findex.html
-  await Promise.any([page.waitForURL(/.*login.aliexpress.com.*/).then(async () => {
+  await Promise.any([page.waitForURL(/.*login\.aliexpress.com.*/).then(async () => {
     // manual login
     console.error('Not logged in! Will wait for 120s for you to login...');
     // await page.waitForTimeout(120*1000);
@@ -110,11 +111,11 @@ const merge = async () => {
 try {
   // await coins();
   await [
-    coins,
+    // coins,
     // grow,
     // gogo,
     // euro,
-    // merge,
+    merge,
   ].reduce((a, f) => a.then(async _ => { await auth(urls[f.name]); await f(); console.log() }), Promise.resolve());
 
   // await page.pause();
