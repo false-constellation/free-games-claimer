@@ -1,11 +1,23 @@
 import { chromium } from 'playwright'; // stealth plugin needs no outdated playwright-extra
 import { datetime, filenamify, prompt, handleSIGINT, stealth } from './src/util.js';
 import { cfg } from './src/config.js';
+import path from 'path';
+import { FingerprintInjector } from 'fingerprint-injector';
+import { FingerprintGenerator } from 'fingerprint-generator';
+
+const { fingerprint, headers } = new FingerprintGenerator().getFingerprint({
+  devices: ["mobile"],
+  operatingSystems: ["android"],
+});
 
 const context = await chromium.launchPersistentContext(cfg.dir.browser, {
   headless: cfg.headless,
   // viewport: { width: cfg.width, height: cfg.height },
-  viewport: null,
+  userAgent: fingerprint.navigator.userAgent,
+  viewport: {
+    width: fingerprint.screen.width,
+    height: fingerprint.screen.height,
+  },
   // userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', // see replace of Headless in util.newStealthContext. TODO Windows UA enough to avoid 'device not supported'? update if browser is updated?
   // userAgent firefox (macOS): Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:106.0) Gecko/20100101 Firefox/106.0
   // userAgent firefox (docker): Mozilla/5.0 (X11; Linux aarch64; rv:109.0) Gecko/20100101 Firefox/115.0
@@ -21,7 +33,7 @@ const context = await chromium.launchPersistentContext(cfg.dir.browser, {
   ], 
 });
 handleSIGINT(context);
-await stealth(context);
+// await stealth(context);
 
 context.setDefaultTimeout(cfg.debug ? 0 : cfg.timeout);
 
