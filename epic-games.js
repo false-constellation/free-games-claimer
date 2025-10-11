@@ -1,4 +1,6 @@
-import { chromium } from 'playwright'; // stealth plugin needs no outdated playwright-extra
+// import { chromium } from 'playwright'; // stealth plugin needs no outdated playwright-extra
+// const { chromium } = require('patchright');
+import { chromium } from 'patchright';
 import { authenticator } from 'otplib';
 import path from 'path';
 import { existsSync, writeFileSync, appendFileSync } from 'fs';
@@ -7,6 +9,7 @@ import { cfg } from './src/config.js';
 
 const screenshot = (...a) => resolve(cfg.dir.screenshots, 'epic-games', ...a);
 
+const URL_START = 'https://store.epicgames.com'
 const URL_CLAIM = 'https://store.epicgames.com/en-US/free-games';
 const URL_LOGIN = 'https://www.epicgames.com/id/login?lang=en-US&noHostRedirect=true&redirectUrl=' + URL_CLAIM;
 
@@ -18,6 +21,7 @@ if (cfg.time) console.time('startup');
 
 // https://playwright.dev/docs/auth#multi-factor-authentication
 const context = await chromium.launchPersistentContext(cfg.dir.browser, {
+  channel: "chrome",
   headless: cfg.headless,
   // viewport: { width: cfg.width, height: cfg.height },
   viewport: null,
@@ -29,7 +33,7 @@ const context = await chromium.launchPersistentContext(cfg.dir.browser, {
   recordHar: cfg.record ? { path: `data/record/eg-${filenamify(datetime())}.har` } : undefined, // will record a HAR file with network requests and responses; can be imported in Chrome devtools
   handleSIGINT: false, // have to handle ourselves and call context.close(), otherwise recordings from above won't be saved
   // user settings for firefox have to be put in $BROWSER_DIR/user.js
-  executablePath: path.join(process.env['PROGRAMFILES'], 'Google/Chrome/Application/chrome.exe'), // Use the locally installed Chrome
+  // executablePath: path.join(process.env['PROGRAMFILES'], 'Google/Chrome/Application/chrome.exe'), // Use the locally installed Chrome
   args: [
     '--disable-blink-features=AutomationControlled',
     '--hide-crash-restore-bubble'
@@ -74,6 +78,8 @@ while (attempts < maxRetries && !success) {
       { name: 'HasAcceptedAgeGates', value: 'USK:9007199254740991,general:18,EPIC SUGGESTED RATING:18', domain: 'store.epicgames.com', path: '/' },
     ]);
 
+    await page.goto(URL_START, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3193);
     await page.goto(URL_CLAIM, { waitUntil: 'domcontentloaded' }); // 'domcontentloaded' faster than default 'load' https://playwright.dev/docs/api/class-page#page-goto
 
     if (cfg.time) console.timeEnd('startup');
