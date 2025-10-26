@@ -8,11 +8,11 @@ import { cfg } from './src/config.js';
 const screenshot = (...a) => resolve(cfg.dir.screenshots, 'prime-gaming', ...a);
 
 // const URL_LOGIN = 'https://www.amazon.de/ap/signin'; // wrong. needs some session args to be valid?
-const URL_CLAIM = 'https://gaming.amazon.com/home';
+const URL_CLAIM = "https://luna.amazon.de/claims/home";
 
-console.log(datetime(), 'started checking prime-gaming');
+console.log(datetime(), "started checking prime-gaming");
 
-const db = await jsonDb('prime-gaming.json', {});
+const db = await jsonDb("prime-gaming.json", {});
 
 // https://playwright.dev/docs/auth#multi-factor-authentication
 const context = await chromium.launchPersistentContext(cfg.dir.browser, {
@@ -21,13 +21,17 @@ const context = await chromium.launchPersistentContext(cfg.dir.browser, {
   // viewport: { width: cfg.width, height: cfg.height },
   viewport: null,
   // userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', // see replace of Headless in util.newStealthContext. TODO Windows UA enough to avoid 'device not supported'? update if browser is updated?
-  locale: 'en-US', // ignore OS locale to be sure to have english text for locators
-  recordVideo: cfg.record ? { dir: 'data/record/', size: { width: cfg.width, height: cfg.height } } : undefined, // will record a .webm video for each page navigated; without size, video would be scaled down to fit 800x800
-  recordHar: cfg.record ? { path: `data/record/pg-${filenamify(datetime())}.har` } : undefined, // will record a HAR file with network requests and responses; can be imported in Chrome devtools
+  locale: "en-US", // ignore OS locale to be sure to have english text for locators
+  recordVideo: cfg.record
+    ? { dir: "data/record/", size: { width: cfg.width, height: cfg.height } }
+    : undefined, // will record a .webm video for each page navigated; without size, video would be scaled down to fit 800x800
+  recordHar: cfg.record
+    ? { path: `data/record/pg-${filenamify(datetime())}.har` }
+    : undefined, // will record a HAR file with network requests and responses; can be imported in Chrome devtools
   handleSIGINT: false, // have to handle ourselves and call context.close(), otherwise recordings from above won't be saved
   args: [
-    '--disable-blink-features=AutomationControlled',
-    '--hide-crash-restore-bubble'
+    "--disable-blink-features=AutomationControlled",
+    "--hide-crash-restore-bubble",
   ],
 });
 
@@ -38,7 +42,9 @@ await stealth(context);
 
 if (!cfg.debug) context.setDefaultTimeout(cfg.timeout);
 
-const page = context.pages().length ? context.pages()[0] : await context.newPage(); // should always exist
+const page = context.pages().length
+  ? context.pages()[0]
+  : await context.newPage(); // should always exist
 await page.setViewportSize({ width: cfg.width, height: cfg.height }); // TODO workaround for https://github.com/vogler/free-games-claimer/issues/277 until Playwright fixes it
 // console.debug('userAgent:', await page.evaluate(() => navigator.userAgent));
 
@@ -46,62 +52,105 @@ const notify_games = [];
 let user;
 
 try {
-  await page.goto(URL_CLAIM, { waitUntil: 'domcontentloaded' }); // default 'load' takes forever
+  await page.goto(URL_CLAIM, { waitUntil: "domcontentloaded" }); // default 'load' takes forever
   // need to wait for some elements to exist before checking if signed in or accepting cookies:
-  await Promise.any(['button:has-text("Sign in")', '[data-a-target="user-dropdown-first-name-text"]'].map(s => page.waitForSelector(s)));
-  page.click('[aria-label="Cookies usage disclaimer banner"] button:has-text("Accept Cookies")').catch(_ => { }); // to not waste screen space when non-headless, TODO does not work reliably, need to wait for something else first?
-  while (await page.locator('button:has-text("Sign in")').count() > 0) {
-    console.error('Not signed in anymore.');
+  await Promise.any(
+    [
+      'button:has-text("Sign in")',
+      '[data-a-target="user-dropdown-first-name-text"]',
+    ].map((s) => page.waitForSelector(s))
+  );
+  page
+    .click(
+      '[aria-label="Cookies usage disclaimer banner"] button:has-text("Accept Cookies")'
+    )
+    .catch((_) => {}); // to not waste screen space when non-headless, TODO does not work reliably, need to wait for something else first?
+  while ((await page.locator('button:has-text("Sign in")').count()) > 0) {
+    console.error("Not signed in anymore.");
     await page.click('button:has-text("Sign in")');
     if (!cfg.debug) context.setDefaultTimeout(cfg.login_timeout); // give user some extra time to log in
     console.info(`Login timeout is ${cfg.login_timeout / 1000} seconds!`);
-    if (cfg.pg_email && cfg.pg_password) console.info('Using email and password from environment.');
-    else console.info('Press ESC to skip the prompts if you want to login in the browser (not possible in headless mode).');
-    const email = cfg.pg_email || await prompt({ message: 'Enter email' });
-    const password = email && (cfg.pg_password || await prompt({ type: 'password', message: 'Enter password' }));
+    if (cfg.pg_email && cfg.pg_password)
+      console.info("Using email and password from environment.");
+    else
+      console.info(
+        "Press ESC to skip the prompts if you want to login in the browser (not possible in headless mode)."
+      );
+    const email = cfg.pg_email || (await prompt({ message: "Enter email" }));
+    const password =
+      email &&
+      (cfg.pg_password ||
+        (await prompt({ type: "password", message: "Enter password" })));
     if (email && password) {
-      await page.fill('[name=email]', email);
+      await page.fill("[name=email]", email);
       await page.click('input[type="submit"]');
-      await page.fill('[name=password]', password);
+      await page.fill("[name=password]", password);
       // await page.check('[name=rememberMe]'); // no longer exists
       await page.click('input[type="submit"]');
-      page.waitForURL('**/ap/signin**').then(async () => { // check for wrong credentials
-        const error = await page.locator('.a-alert-content').first().innerText();
+      page.waitForURL("**/ap/signin**").then(async () => {
+        // check for wrong credentials
+        const error = await page
+          .locator(".a-alert-content")
+          .first()
+          .innerText();
         if (!error.trim.length) return;
-        console.error('Login error:', error);
+        console.error("Login error:", error);
         await notify(`prime-gaming: login: ${error}`);
         await context.close(); // finishes potential recording
         process.exit(1);
       });
       // handle MFA, but don't await it
-      page.waitForURL('**/ap/mfa**').then(async () => {
-        console.log('Two-Step Verification - enter the One Time Password (OTP), e.g. generated by your Authenticator App');
-        await page.check('[name=rememberDevice]');
-        const otp = cfg.pg_otpkey && authenticator.generate(cfg.pg_otpkey) || await prompt({ type: 'text', message: 'Enter two-factor sign in code', validate: n => n.toString().length == 6 || 'The code must be 6 digits!' }); // can't use type: 'number' since it strips away leading zeros and codes sometimes have them
-        await page.locator('input[name=otpCode]').pressSequentially(otp.toString());
-        await page.click('input[type="submit"]');
-      }).catch(_ => { });
+      page
+        .waitForURL("**/ap/mfa**")
+        .then(async () => {
+          console.log(
+            "Two-Step Verification - enter the One Time Password (OTP), e.g. generated by your Authenticator App"
+          );
+          await page.check("[name=rememberDevice]");
+          const otp =
+            (cfg.pg_otpkey && authenticator.generate(cfg.pg_otpkey)) ||
+            (await prompt({
+              type: "text",
+              message: "Enter two-factor sign in code",
+              validate: (n) =>
+                n.toString().length == 6 || "The code must be 6 digits!",
+            })); // can't use type: 'number' since it strips away leading zeros and codes sometimes have them
+          await page
+            .locator("input[name=otpCode]")
+            .pressSequentially(otp.toString());
+          await page.click('input[type="submit"]');
+        })
+        .catch((_) => {});
     } else {
-      console.log('Waiting for you to login in the browser.');
-      await notify('prime-gaming: no longer signed in and not enough options set for automatic login.');
+      console.log("Waiting for you to login in the browser.");
+      await notify(
+        "prime-gaming: no longer signed in and not enough options set for automatic login."
+      );
       if (cfg.headless) {
-        console.log('Run `SHOW=1 node prime-gaming` to login in the opened browser.');
+        console.log(
+          "Run `SHOW=1 node prime-gaming` to login in the opened browser."
+        );
         await context.close(); // finishes potential recording
         process.exit(1);
       }
     }
-    await page.waitForURL('https://gaming.amazon.com/home?signedIn=true');
+    await page.waitForURL("https://gaming.amazon.com/home?signedIn=true");
     if (!cfg.debug) context.setDefaultTimeout(cfg.timeout);
   }
-  user = await page.locator('[data-a-target="user-dropdown-first-name-text"]').first().innerText();
+  user = await page
+    .locator('[data-a-target="user-dropdown-first-name-text"]')
+    .first()
+    .innerText();
   console.log(`Signed in as ${user}`);
   // await page.click('button[aria-label="User dropdown and more options"]');
   // const twitch = await page.locator('[data-a-target="TwitchDisplayName"]').first().innerText();
   // console.log(`Twitch user name is ${twitch}`);
   db.data[user] ||= {};
 
-  if (await page.getByRole('button', { name: 'Try Prime' }).count()) {
-    console.error('User is currently not an Amazon Prime member, so no games to claim. Exit!');
+  if (await page.getByRole("button", { name: "Try Prime" }).count()) {
+    console.error(
+      "User is currently not an Amazon Prime member, so no games to claim. Exit!"
+    );
     await context.close();
     process.exit(1);
   }
@@ -110,55 +159,76 @@ try {
     let v;
     while (true) {
       const v2 = await f();
-      console.log('waitUntilStable', v2);
+      console.log("waitUntilStable", v2);
       if (v == v2) break;
       v = v2;
       await act();
     }
   };
-  const scrollUntilStable = async f => await waitUntilStable(f, async () => {
-    // await page.keyboard.press('End'); // scroll to bottom to show all games
-  // loading all games became flaky; see https://github.com/vogler/free-games-claimer/issues/357
-    await page.keyboard.press('PageDown'); // scrolling to straight to the bottom started to skip loading some games
-    await page.waitForLoadState('networkidle'); // wait for all games to be loaded
-    await page.waitForTimeout(3000); // TODO networkidle wasn't enough to load all already collected games
-    // do it again since once wasn't enough...
-    await page.keyboard.press('PageDown');
-    await page.waitForTimeout(3000);
-  });
+  const scrollUntilStable = async (f) =>
+    await waitUntilStable(f, async () => {
+      // await page.keyboard.press('End'); // scroll to bottom to show all games
+      // loading all games became flaky; see https://github.com/vogler/free-games-claimer/issues/357
+      await page.keyboard.press("PageDown"); // scrolling to straight to the bottom started to skip loading some games
+      await page.waitForLoadState("networkidle"); // wait for all games to be loaded
+      await page.waitForTimeout(3000); // TODO networkidle wasn't enough to load all already collected games
+      // do it again since once wasn't enough...
+      await page.keyboard.press("PageDown");
+      await page.waitForTimeout(3000);
+    });
 
   await page.click('button[data-type="Game"]');
   const games = page.locator('div[data-a-target="offer-list-FGWP_FULL"]');
   await games.waitFor();
   // await scrollUntilStable(() => games.locator('.item-card__action').count()); // number of games
-  await scrollUntilStable(() => page.evaluate(() => document.querySelector('.tw-full-width').scrollHeight)); // height may change during loading while number of games is still the same?
-  console.log('Number of already claimed games (total):', await games.locator('p:has-text("Collected")').count());
+  await scrollUntilStable(() =>
+    page.evaluate(() => document.querySelector(".tw-full-width").scrollHeight)
+  ); // height may change during loading while number of games is still the same?
+  console.log(
+    "Number of already claimed games (total):",
+    await games.locator('p:has-text("Collected")').count()
+  );
   // can't use .all() since the list of elements via locator will change after click while we iterate over it
-  const internal = await games.locator('.item-card__action:has(button[data-a-target="FGWPOffer"])').elementHandles();
-  const external = await games.locator('.item-card__action:has(a[data-a-target="FGWPOffer"])').all();
+  const internal = await games
+    .locator('.item-card__action:has(button[data-a-target="FGWPOffer"])')
+    .elementHandles();
+  const external = await games
+    .locator('.item-card__action:has(a[data-a-target="FGWPOffer"])')
+    .all();
   // bottom to top: oldest to newest games
   internal.reverse();
   external.reverse();
-  const sameOrNewPage = async url => new Promise(async (resolve, _reject) => {
-    const isNew = page.url() != url;
-    let p = page;
-    if (isNew) {
-      p = await context.newPage();
-      await p.goto(url, { waitUntil: 'domcontentloaded' });
-    }
-    resolve([p, isNew]);
-  });
-  const skipBasedOnTime = async url => {
+  const sameOrNewPage = async (url) =>
+    new Promise(async (resolve, _reject) => {
+      const isNew = page.url() != url;
+      let p = page;
+      if (isNew) {
+        p = await context.newPage();
+        await p.goto(url, { waitUntil: "domcontentloaded" });
+      }
+      resolve([p, isNew]);
+    });
+  const skipBasedOnTime = async (url) => {
     // console.log('  Checking time left for game:', url);
     const [p, isNew] = await sameOrNewPage(url);
-    const dueDateOrg = await p.locator('.availability-date .tw-bold').innerText();
-    const dueDate = new Date(Date.parse(dueDateOrg + ' 17:00'));
-    const daysLeft = (dueDate.getTime() - Date.now())/1000/60/60/24;
-    console.log(' ', await p.locator('.availability-date').innerText(), '->', daysLeft.toFixed(2));
+    const dueDateOrg = await p
+      .locator(".availability-date .tw-bold")
+      .innerText();
+    const dueDate = new Date(Date.parse(dueDateOrg + " 17:00"));
+    const daysLeft = (dueDate.getTime() - Date.now()) / 1000 / 60 / 60 / 24;
+    console.log(
+      " ",
+      await p.locator(".availability-date").innerText(),
+      "->",
+      daysLeft.toFixed(2)
+    );
     if (isNew) await p.close();
     return daysLeft > cfg.pg_timeLeft;
-  }
-  console.log('\nNumber of free unclaimed games (Prime Gaming):', internal.length);
+  };
+  console.log(
+    "\nNumber of free unclaimed games (Prime Gaming):",
+    internal.length
+  );
   // claim games in internal store
   for (const card of internal) {
     await card.scrollIntoViewIfNeeded();
@@ -200,7 +270,7 @@ try {
       .locator('a:has-text("Claim")')
       .first()
       .getAttribute("href");
-    const url = "https://gaming.amazon.com" + slug.split("?")[0];
+    const url = "https://luna.amazon.com" + slug.split("?")[0];
     // await (await card.$('text=Claim')).click(); // goes to URL of game, no need to wait
     external_info.push({ title, url });
   }
@@ -483,7 +553,7 @@ try {
           .locator(".item-card-details__body__primary")
           .innerText(),
         url:
-          "https://gaming.amazon.com" +
+          "https://luna.amazon.com" +
           (await card.locator("a").first().getAttribute("href")),
       }))
     );
@@ -561,12 +631,14 @@ try {
   }
 } catch (error) {
   process.exitCode ||= 1;
-  console.error('--- Exception:');
+  console.error("--- Exception:");
   console.error(error); // .toString()?
-  if (error.message && process.exitCode != 130) notify(`prime-gaming failed: ${error.message.split('\n')[0]}`);
+  if (error.message && process.exitCode != 130)
+    notify(`prime-gaming failed: ${error.message.split("\n")[0]}`);
 } finally {
   await db.write(); // write out json db
-  if (notify_games.length) { // list should only include claimed games
+  if (notify_games.length) {
+    // list should only include claimed games
     notify(`prime-gaming (${user}):<br>${html_game_list(notify_games)}`);
   }
 }
