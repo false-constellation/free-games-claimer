@@ -146,15 +146,16 @@ while (attempts < maxRetries && !success) {
     if (cfg.time) console.timeEnd('login');
     if (cfg.time) console.time('claim all games');
 
-    // Detect free games
-    const game_loc = page.locator('a:has(span:text-is("Free Now"))');
-    await game_loc.last().waitFor().catch(_ => {
+    // Detect free games (exact badge text, but don't require visibility in case cards are offscreen)
+    const freeBadge = page.locator('span:text-is("Free Now")');
+    await freeBadge.first().waitFor({ state: 'attached' }).catch(_ => {
       // rarely there are no free games available -> catch Timeout
       // TODO would be better to wait for alternative like 'coming soon' instead of waiting for timeout
       // see https://github.com/vogler/free-games-claimer/issues/210#issuecomment-1727420943
       console.error('Seems like currently there are no free games available in your region...');
       // urls below should then be an empty list
     });
+    const game_loc = page.locator('a').filter({ has: freeBadge });
     await page.waitForTimeout(4100);
     // clicking on `game_sel` sometimes led to a 404, see https://github.com/vogler/free-games-claimer/issues/25
     // debug showed that in those cases the href was still correct, so we `goto` the urls instead of clicking.
