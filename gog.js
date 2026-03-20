@@ -75,12 +75,15 @@ while (attempts < maxAttempts) {
     ]); // to not waste screen space when non-headless
 
     await page.goto(URL_CLAIM, { waitUntil: "domcontentloaded" }); // default 'load' takes forever
+    // Wait for the AngularJS menu auth API call to complete (sets anonymous.isResponseFetched which controls ng-show visibility of "Sign in" / user-name).
+    // Both selectors are inside ng-cloak sections and remain display:none until AngularJS bootstraps AND the auth check resolves.
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
 
     // page.click('#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll').catch(_ => { }); // does not work reliably, solved by setting CookieConsent above
     const signIn = page.locator('a:has-text("Sign in")').first();
     await Promise.any([
-      signIn.waitFor(),
-      page.waitForSelector(".menu-account__user-name"),
+      signIn.waitFor().catch(e => { throw Object.assign(e, { locator: 'a:has-text("Sign in")' }); }),
+      page.waitForSelector(".menu-account__user-name").catch(e => { throw Object.assign(e, { locator: '.menu-account__user-name' }); }),
     ]);
     while (await signIn.isVisible()) {
       console.error("Not signed in anymore.");
@@ -220,6 +223,10 @@ while (attempts < maxAttempts) {
     }
     break; // Exit loop if successful
   } catch (error) {
+    if (error instanceof AggregateError) {
+      console.error("Promise.any() - all locators timed out:");
+      error.errors.forEach(e => console.error(`  - ${e.locator ?? '(unknown locator)'}: ${e.message?.split('\n')[0]}`));
+    }
     if (attempts >= maxAttempts) {
       process.exitCode ||= 1;
       console.error("--- Exception after maximum retries:");
