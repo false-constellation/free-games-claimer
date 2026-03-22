@@ -82,8 +82,16 @@ while (attempts < maxAttempts) {
     // page.click('#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll').catch(_ => { }); // does not work reliably, solved by setting CookieConsent above
     const signIn = page.locator('a:has-text("Sign in")').first();
     await Promise.any([
-      signIn.waitFor().catch(e => { throw Object.assign(e, { locator: 'a:has-text("Sign in")' }); }),
-      page.waitForSelector(".menu-account__user-name").catch(e => { throw Object.assign(e, { locator: '.menu-account__user-name' }); }),
+      signIn.waitFor().catch((e) => {
+        throw Object.assign(e, { locator: 'a:has-text("Sign in")' });
+      }),
+      page
+        .waitForSelector(".menu-account__user-name:not(:empty)", {
+          state: "attached",
+        })
+        .catch((e) => {
+          throw Object.assign(e, { locator: ".menu-account__user-name" });
+        }),
     ]);
     while (await signIn.isVisible()) {
       console.error("Not signed in anymore.");
@@ -145,7 +153,9 @@ while (attempts < maxAttempts) {
             // TODO solve reCAPTCHA?
           })
           .catch((_) => {});
-        await page.waitForSelector(".menu-account__user-name");
+        await page.waitForSelector(".menu-account__user-name:not(:empty)", {
+          state: "attached",
+        });
       } else {
         console.log("Waiting for you to login in the browser.");
         await notify(
@@ -157,7 +167,9 @@ while (attempts < maxAttempts) {
           process.exit(1);
         }
       }
-      await page.waitForSelector(".menu-account__user-name");
+      await page.waitForSelector(".menu-account__user-name:not(:empty)", {
+        state: "attached",
+      });
       if (!cfg.debug) context.setDefaultTimeout(cfg.timeout);
     }
     user = await page.locator(".menu-account__user-name").first().textContent();
