@@ -284,25 +284,47 @@ while (attempts < maxRetries && !success) {
         btnAgree.waitFor().then(() => btnAgree.click()).catch(_ => { }); // EU: wait for and click 'I Agree'
         try {
           // context.setDefaultTimeout(100 * 1000); // give time to solve captcha, iframe goes blank after 60s?
-          const captcha = iframe.locator('#h_captcha_challenge_checkout_free_prod iframe');
-          captcha.waitFor().then(async () => { // don't await, since element may not be shown
-            // console.info('  Got hcaptcha challenge! NopeCHA extension will likely solve it.')
-            console.error('  Got hcaptcha challenge! Lost trust due to too many login attempts? You can solve the captcha in the browser or get a new IP address.');
-            await notify(`epic-games: got captcha challenge right before claim of <a href="${url}">${title}</a>. Use VNC to solve it manually.`); // TODO could even create purchase URL, see https://github.com/vogler/free-games-claimer/pull/130
-            // await page.waitForTimeout(2000);
-            // const p = path.resolve(cfg.dir.screenshots, 'epic-games', 'captcha', `${filenamify(datetime())}.png`);
-            // await captcha.screenshot({ path: p });
-            // console.info('  Saved a screenshot of hcaptcha challenge to', p);
-            // console.error('  Got hcaptcha challenge. To avoid it, get a link from https://www.hcaptcha.com/accessibility'); // TODO save this link in config and visit it daily to set accessibility cookie to avoid captcha challenge?
-          }).catch(_ => { }); // may time out if not shown
-          iframe.locator('.payment__errors:has-text("Failed to challenge captcha, please try again later.")').waitFor().then(async () => {
-            console.error('  Failed to challenge captcha, please try again later.');
-            await notify('epic-games: failed to challenge captcha. Please check.');
-          }).catch(_ => { });
-          await page.locator('text=Thanks for your order!').waitFor({ state: 'attached' }); // TODO Bundle: got stuck here, but normal game now as well
-          db.data[user][game_id].status = 'claimed';
+          const captcha = iframe.locator(
+            "#h_captcha_challenge_checkout_free_prod iframe",
+          );
+          captcha
+            .waitFor()
+            .then(async () => {
+              // don't await, since element may not be shown
+              // console.info('  Got hcaptcha challenge! NopeCHA extension will likely solve it.')
+              console.error(
+                "  Got hcaptcha challenge! Lost trust due to too many login attempts? You can solve the captcha in the browser or get a new IP address.",
+              );
+              await notify(
+                `epic-games: got captcha challenge right before claim of <a href="${url}">${title}</a>. Use VNC to solve it manually.`,
+              ); // TODO could even create purchase URL, see https://github.com/vogler/free-games-claimer/pull/130
+              // await page.waitForTimeout(2000);
+              // const p = path.resolve(cfg.dir.screenshots, 'epic-games', 'captcha', `${filenamify(datetime())}.png`);
+              // await captcha.screenshot({ path: p });
+              // console.info('  Saved a screenshot of hcaptcha challenge to', p);
+              // console.error('  Got hcaptcha challenge. To avoid it, get a link from https://www.hcaptcha.com/accessibility'); // TODO save this link in config and visit it daily to set accessibility cookie to avoid captcha challenge?
+            })
+            .catch((_) => {}); // may time out if not shown
+          iframe
+            .locator(
+              '.payment__errors:has-text("Failed to challenge captcha, please try again later.")',
+            )
+            .waitFor()
+            .then(async () => {
+              console.error(
+                "  Failed to challenge captcha, please try again later.",
+              );
+              await notify(
+                "epic-games: failed to challenge captcha. Please check.",
+              );
+            })
+            .catch((_) => {});
+          await page
+            .locator("text=/Thanks for your order!|It's all yours/i")
+            .waitFor({ state: "attached" }); // TODO Bundle: got stuck here, but normal game now as well
+          db.data[user][game_id].status = "claimed";
           db.data[user][game_id].time = datetime(); // claimed time overwrites failed/dryrun time
-          console.log('  Claimed successfully!');
+          console.log("  Claimed successfully!");
           // context.setDefaultTimeout(cfg.timeout);
         } catch (e) {
           console.log(e);
