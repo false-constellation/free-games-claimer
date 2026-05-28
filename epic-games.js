@@ -273,7 +273,11 @@ while (attempts < maxRetries && !success) {
         }
 
         // Playwright clicked before button was ready to handle event, https://github.com/vogler/free-games-claimer/issues/84#issuecomment-1474346591
-        await iframe.locator('button:has-text("Place Order"):not(:has(.payment-loading--loading))').click({ delay: 11 });
+        await iframe
+          .locator(
+            'button:has-text("Place Order"):not(:has(.payment-loading--loading)), button:has-text("Add to library"):not(:has(.payment-loading--loading)), button:has-text("Add to Library"):not(:has(.payment-loading--loading))',
+          )
+          .click({ delay: 11 });
 
         // I Agree button is only shown for EU accounts! https://github.com/vogler/free-games-claimer/pull/7#issuecomment-1038964872
         const btnAgree = iframe.locator('button:has-text("I Accept")');
