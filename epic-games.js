@@ -319,9 +319,16 @@ while (attempts < maxRetries && !success) {
               );
             })
             .catch((_) => {});
-          await page
-            .locator("text=/Thanks for your order!|It's all yours/i")
-            .waitFor({ state: "attached" }); // TODO Bundle: got stuck here, but normal game now as well
+          await Promise.any([
+            page
+              .locator("text=/Thanks for your order!|It's all yours/i")
+              .waitFor({ state: "attached" }),
+            page
+              .locator(
+                'button[data-testid="purchase-cta-button"] >> text=/in library/i',
+              )
+              .waitFor({ state: "attached" }),
+          ]);
           db.data[user][game_id].status = "claimed";
           db.data[user][game_id].time = datetime(); // claimed time overwrites failed/dryrun time
           console.log("  Claimed successfully!");
