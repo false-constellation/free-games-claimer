@@ -75,22 +75,21 @@ while (attempts < maxAttempts) {
     ]); // to not waste screen space when non-headless
 
     await page.goto(URL_CLAIM, { waitUntil: "domcontentloaded" }); // default 'load' takes forever
-    // Wait for the AngularJS menu auth API call to complete (sets anonymous.isResponseFetched which controls ng-show visibility of "Sign in" / user-name).
-    // Both selectors are inside ng-cloak sections and remain display:none until AngularJS bootstraps AND the auth check resolves.
+    // Wait for the v3 menu authentication state to resolve.
+    // Both controls remain attached while their logged-in state is hidden.
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
 
     // page.click('#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll').catch(_ => { }); // does not work reliably, solved by setting CookieConsent above
-    const signIn = page.locator('a:has-text("Sign in")').first();
+    const signIn = page.locator('.menu-v3__top-bar-anonymous-only').first();
+    const accountAvatar = page.locator('.menu-v3__button--avatar').first();
     await Promise.any([
-      signIn.waitFor().catch((e) => {
-        throw Object.assign(e, { locator: 'a:has-text("Sign in")' });
+      signIn.waitFor({ state: 'visible' }).catch((e) => {
+        throw Object.assign(e, { locator: '.menu-v3__top-bar-anonymous-only' });
       }),
-      page
-        .waitForSelector(".menu-account__user-name:not(:empty)", {
-          state: "attached",
-        })
+      accountAvatar
+        .waitFor({ state: 'visible' })
         .catch((e) => {
-          throw Object.assign(e, { locator: ".menu-account__user-name" });
+          throw Object.assign(e, { locator: '.menu-v3__button--avatar' });
         }),
     ]);
     while (await signIn.isVisible()) {
@@ -153,9 +152,7 @@ while (attempts < maxAttempts) {
             // TODO solve reCAPTCHA?
           })
           .catch((_) => {});
-        await page.waitForSelector(".menu-account__user-name:not(:empty)", {
-          state: "attached",
-        });
+        await accountAvatar.waitFor({ state: 'visible' });
       } else {
         console.log("Waiting for you to login in the browser.");
         await notify(
@@ -167,12 +164,10 @@ while (attempts < maxAttempts) {
           process.exit(1);
         }
       }
-      await page.waitForSelector(".menu-account__user-name:not(:empty)", {
-        state: "attached",
-      });
+      await accountAvatar.waitFor({ state: 'visible' });
       if (!cfg.debug) context.setDefaultTimeout(cfg.timeout);
     }
-    user = await page.locator(".menu-account__user-name").first().textContent();
+    user = (await (await context.request.get('https://embed.gog.com/userData.json')).json()).username;
     console.log(`Signed in as ${user}`);
     db.data[user] ||= {};
 
